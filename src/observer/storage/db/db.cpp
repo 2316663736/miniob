@@ -415,3 +415,49 @@ RC Db::init_dblwr_buffer()
 LogHandler        &Db::log_handler() { return *log_handler_; }
 BufferPoolManager &Db::buffer_pool_manager() { return *buffer_pool_manager_; }
 TrxKit            &Db::trx_kit() { return *trx_kit_; }
+RC Db::drop_table(const char *table_name)
+{
+  if (nullptr == table_name) {
+    LOG_ERROR("Invalid table name");
+    return RC::INVALID_ARGUMENT;
+  }
+
+  auto iter = opened_tables_.find(table_name);
+  if (iter == opened_tables_.end()) {
+    LOG_ERROR("Table %s doesn't exist", table_name);
+    return RC::SCHEMA_TABLE_NOT_EXIST;
+  }
+
+  Table *table = iter->second;
+
+  // 同步表数据，确保缓存数据写入磁盘
+  RC rc = table->sync();
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to sync table data for %s. rc=%s", table_name, strrc(rc));
+  }
+
+  // 删除表文件
+  string table_file_path = table_meta_file(path_.c_str(), table_name);
+  if (::remove(table_file_path.c_str()) != 0) {
+    LOG_ERROR("Failed to remove table meta file: %s, error=%s",
+              table_file_path.c_str(), strerror(errno));
+    // 继续执行，不因此返回错误
+  }
+
+  // 删除表数据文件
+  string data_file = table_data_file(path_.c_str(), table_name);
+  if (::remove(data_file.c_str()) != 0) {
+    LOG_ERROR("Failed to remove table data file: %s, error=%s",
+              data_file.c_str(), strerror(errno));
+    // 继续执行，不因此返回错误
+  }
+
+  // 从表列表中移除
+  opened_tables_.erase(iter);
+
+  // 删除表对象
+  delete table;
+
+  LOG_INFO("Table %s has been dropped", table_name);
+  return RC::SUCCESS;
+}

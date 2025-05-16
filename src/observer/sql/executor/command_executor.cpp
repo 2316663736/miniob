@@ -11,7 +11,7 @@ See the Mulan PSL v2 for more details. */
 //
 // Created by Wangyunlai on 2023/4/25.
 //
-
+#include "sql/stmt/drop_table_stmt.h"
 #include "sql/executor/command_executor.h"
 #include "common/log/log.h"
 #include "event/sql_event.h"
@@ -87,7 +87,9 @@ RC CommandExecutor::execute(SQLStageEvent *sql_event)
     case StmtType::EXIT: {
       rc = RC::SUCCESS;
     } break;
-
+    case StmtType::DROP_TABLE: {
+      return execute_drop_table(sql_event);
+    }
     default: {
       LOG_ERROR("unknown command: %d", static_cast<int>(stmt->type()));
       rc = RC::UNIMPLEMENTED;
@@ -101,4 +103,18 @@ RC CommandExecutor::execute(SQLStageEvent *sql_event)
   }
 
   return rc;
+}
+RC CommandExecutor::execute_drop_table(SQLStageEvent *sql_event)
+{
+  Stmt *stmt = sql_event->stmt();
+  const DropTableStmt *drop_table_stmt = static_cast<const DropTableStmt *>(stmt);
+  const char *table_name = drop_table_stmt->table_name();
+
+  Session *session = sql_event->session_event()->session();
+  Db *db = session->get_current_db();
+  if (nullptr == db) {
+    return RC::SCHEMA_DB_NOT_OPENED;
+  }
+
+  return db->drop_table(table_name);
 }

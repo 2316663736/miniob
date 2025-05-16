@@ -33,5 +33,6 @@ public:
   CommandExecutor()          = default;
   virtual ~CommandExecutor() = default;
 
+    RC execute_drop_table(SQLStageEvent *sql_event);
   RC execute(SQLStageEvent *sql_event);
 };

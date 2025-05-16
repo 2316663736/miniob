@@ -47,7 +47,7 @@ class Db
 public:
   Db() = default;
   ~Db();
-
+  RC drop_table(const char *table_name);
   /**
    * @brief 初始化一个数据库实例
    * @details 从指定的目录下加载指定名称的数据库。这里就会加载dbpath目录下的数据。
